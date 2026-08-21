@@ -1,0 +1,14 @@
+data/*.csv
+data/*.parquet
+.env
+*.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+.DS_Store
+*.pt
+*.pkl
+*.model
