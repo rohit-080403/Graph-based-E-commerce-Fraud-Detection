@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
@@ -10,9 +8,9 @@ from sklearn.metrics import (
 import xgboost as xgb
 import joblib
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_PATH = PROJECT_ROOT / "data" / "processed_sample.parquet"
-MODEL_OUT = PROJECT_ROOT / "src" / "baseline" / "xgb_baseline.model"
+DATA_PATH = "data/processed_sample.parquet"
+MODEL_OUT = "src/baseline/xgb_baseline.model"
+
 
 EXCLUDE_COLS = [
     "TransactionID", "isFraud",
@@ -59,23 +57,21 @@ def train_model(train_df, test_df, feature_cols):
     X_train, y_train = train_df[feature_cols], train_df["isFraud"]
     X_test, y_test = test_df[feature_cols], test_df["isFraud"]
 
+    # Handle class imbalance (~3.5% fraud rate)
     scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
     print(f"scale_pos_weight: {scale_pos_weight:.2f}")
 
     model = xgb.XGBClassifier(
-        n_estimators=150,
-        max_depth=5,
-        learning_rate=0.08,
+        n_estimators=300,
+        max_depth=6,
+        learning_rate=0.1,
         scale_pos_weight=scale_pos_weight,
-        objective="binary:logistic",
         eval_metric="aucpr",
         random_state=42,
-        n_jobs=1,
-        tree_method="hist",
-        verbosity=0,
+        n_jobs=-1,
     )
 
-    model.fit(X_train, y_train)
+    model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
     return model, X_test, y_test
 
 
@@ -95,8 +91,6 @@ def evaluate(model, X_test, y_test):
 
 
 if __name__ == "__main__":
-    MODEL_OUT.parent.mkdir(parents=True, exist_ok=True)
-
     train_df, test_df = load_and_prepare()
 
     feature_cols = [c for c in train_df.columns if c not in EXCLUDE_COLS]
