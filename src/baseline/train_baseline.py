@@ -69,7 +69,7 @@ def train_model(train_df, test_df, feature_cols):
         eval_metric="aucpr",
         random_state=42,
         n_jobs=1,              # CHANGED from -1 — single-threaded, fully deterministic
-        tree_method="hist",    # ADDED — explicit deterministic histogram algorithm
+        tree_method="hist",    # 
     )
 
     model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
