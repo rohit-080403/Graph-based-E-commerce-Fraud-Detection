@@ -1,3 +1,4 @@
+import joblib
 import pickle
 import numpy as np
 import pandas as pd
@@ -29,15 +30,20 @@ def build_transaction_features(export):
     feature_cols = [c for c in df.columns if c not in EXCLUDE_COLS]
 
     cat_cols = df[feature_cols].select_dtypes(include=["object"]).columns.tolist()
+    encoders = {}
     for col in cat_cols:
         df[col] = df[col].fillna("missing").astype(str)
-        df[col] = LabelEncoder().fit_transform(df[col])
+        le = LabelEncoder()
+        df[col] = le.fit_transform(df[col])
+        encoders[col] = le
+    joblib.dump(encoders, "src/api/label_encoders.pkl")
 
     df[feature_cols] = df[feature_cols].fillna(0)
 
     
     scaler = StandardScaler()
     scaled = scaler.fit_transform(df[feature_cols].values)
+    joblib.dump(scaler, "src/api/txn_scaler.pkl")
 
     x = torch.tensor(scaled, dtype=torch.float)
     y = torch.tensor(df["isFraud"].values, dtype=torch.long)
@@ -47,7 +53,7 @@ def build_transaction_features(export):
     return x, y, ring_ids
 
 
-def build_structural_features(nodes, index_map, edge_list):
+def build_structural_features(nodes, index_map, edge_list , name):
     n = len(nodes)
     degree = np.zeros(n)
 
@@ -65,6 +71,7 @@ def build_structural_features(nodes, index_map, edge_list):
 
     scaler = StandardScaler()
     degree_scaled = scaler.fit_transform(degree_log.reshape(-1, 1)).flatten()
+    joblib.dump(scaler, f"src/api/{name}_scaler.pkl")
 
     x = np.stack([degree_scaled, is_synthetic], axis=1)
     x = torch.tensor(x, dtype=torch.float)
@@ -87,14 +94,10 @@ def build_hetero_data():
     data["transaction"].y = y_txn
     data["transaction"].ring_id = ring_ids
 
-    data["card"].x = build_structural_features(
-        export["nodes"]["card"], export["index_maps"]["card"], export["edges"]["txn_card"])
-    data["address"].x = build_structural_features(
-        export["nodes"]["address"], export["index_maps"]["address"], export["edges"]["txn_address"])
-    data["device"].x = build_structural_features(
-        export["nodes"]["device"], export["index_maps"]["device"], export["edges"]["txn_device"])
-    data["email"].x = build_structural_features(
-        export["nodes"]["email"], export["index_maps"]["email"], export["edges"]["txn_email"])
+    data["card"].x = build_structural_features(export["nodes"]["card"], export["index_maps"]["card"], export["edges"]["txn_card"], name="card")
+    data["address"].x = build_structural_features(export["nodes"]["address"], export["index_maps"]["address"], export["edges"]["txn_address"], name="address")
+    data["device"].x = build_structural_features(export["nodes"]["device"], export["index_maps"]["device"], export["edges"]["txn_device"], name="device")
+    data["email"].x = build_structural_features(export["nodes"]["email"], export["index_maps"]["email"], export["edges"]["txn_email"], name="email")
 
     txn_idx = export["index_maps"]["transaction"]
 

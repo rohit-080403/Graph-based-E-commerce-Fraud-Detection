@@ -1,0 +1,1 @@
+import pandas as pd; df = pd.read_parquet('data/processed_sample.parquet'); print(df[df['isFraud']==0]['TransactionID'].head(3).tolist())
